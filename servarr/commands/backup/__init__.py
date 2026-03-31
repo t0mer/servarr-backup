@@ -26,7 +26,7 @@ def add_subparser(subparsers):
         p.add_argument(
             "--type",
             action="append",
-            choices=["prowlarr", "radarr", "sonarr"],
+            choices=["jackett", "lidarr", "prowlarr", "radarr", "readarr", "sonarr"],
             help="Specify the type of servers"
         )
 

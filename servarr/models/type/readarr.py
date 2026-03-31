@@ -9,11 +9,12 @@ import yaml
 from ..destination import create_storage
 from . import Server
 
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-class Sonarr(Server):
+class Readarr(Server):
     def __init__(self, instance_name):
         config_dir = os.path.join(os.path.expanduser("~"), ".config", "servarr")
         config_path = os.path.join(config_dir, "config.yml")
@@ -24,43 +25,43 @@ class Sonarr(Server):
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
 
-        instances = config.get("backups", {}).get("starrs", {}).get("sonarr", [])
-        sonarr_config = next((inst for inst in instances if inst['name'] == instance_name), None)
-        
-        if not sonarr_config:
+        instances = config.get("backups", {}).get("starrs", {}).get("readarr", [])
+        readarr_config = next((inst for inst in instances if inst['name'] == instance_name), None)
+
+        if not readarr_config:
             raise ValueError(f"Instance '{instance_name}' configuration not found in the configuration file.")
 
         dest_config = config.get("backups", {}).get("destination", {})
-        url = sonarr_config.get("url")
-        api_key = sonarr_config.get("api_key")
+        url = readarr_config.get("url")
+        api_key = readarr_config.get("api_key")
 
         if not url or not api_key:
-            raise ValueError("Sonarr URL or API Key is missing in the configuration.")
+            raise ValueError("Readarr URL or API Key is missing in the configuration.")
 
         super().__init__(url, api_key)
 
-        self.instance_name = instance_name  # Store the instance name
+        self.instance_name = instance_name
         self.storage = create_storage(dest_config)
 
 
     def backup(self):
         # Create Backup
         self.create_backup()
-        
+
         # Download Backup
         backup_path = self.download_latest_backup()
-        
+
         if backup_path:
             # Upload Backup to S3
-            storage_key = f"sonarr/{self.instance_name}/{os.path.basename(backup_path)}"
+            storage_key = f"readarr/{self.instance_name}/{os.path.basename(backup_path)}"
             upload_success = self.storage.upload_file(backup_path, storage_key)
-            
+
             if upload_success:
                 # Delete Backup from local file system
                 os.remove(backup_path)
                 logger.info(f"Deleted local backup file {backup_path} successfully.")
-                
-                # Delete Backup from Sonarr server
+
+                # Delete Backup from Readarr server
                 backup_id = self.get_backup_id(os.path.basename(backup_path))
                 if backup_id:
                     self.delete_server_backup(backup_id)
@@ -69,36 +70,36 @@ class Sonarr(Server):
 
 
     def create_backup(self):
-        url = f"{self.url}/api/v3/command"
+        url = f"{self.url}/api/v1/command"
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0",
             "Content-Type": "application/json",
             "X-Api-Key": self.api_key,
         }
-        logger.info("Starting backup creation for Sonarr.")
+        logger.info("Starting backup creation for Readarr.")
         logger.debug(f"Requesting URL: {url}")
         logger.debug(f"Using headers: {headers}")
-        
+
         res = requests.post(url, headers=headers, json={"name": "Backup"})
-        
+
         if res.status_code == 201:
             command_id = res.json().get('id')
             self.backup_id = command_id
             logger.info(f"Created backup command successfully with ID: {command_id}")
             if command_id:
                 if self.wait_for_completion(command_id):
-                    logger.info("Completed backup for Sonarr successfully.")
+                    logger.info("Completed backup for Readarr successfully.")
                 else:
-                    logger.error("Failed to complete backup for Sonarr.")
+                    logger.error("Failed to complete backup for Readarr.")
             else:
                 logger.error("Failed to retrieve command ID for backup creation.")
         else:
-            logger.error(f"Failed to create backup for Sonarr. Status code: {res.status_code}")
+            logger.error(f"Failed to create backup for Readarr. Status code: {res.status_code}")
             logger.debug(f"Response body: {res.text}")
 
 
     def delete_backup(self, backup_name):
-        logger.info(f"Deleting backup '{backup_name}' for Sonarr.")
+        logger.info(f"Deleting backup '{backup_name}' for Readarr.")
         try:
             self.storage.delete_file(backup_name)
             return True
@@ -112,15 +113,14 @@ class Sonarr(Server):
         threshold_date = datetime.utcnow() - timedelta(days=retention_days)
         for backup in backups:
             obj_datetime = backup['LastModified']
-            # Convert obj_datetime to naive datetime for comparison
             obj_datetime_native = obj_datetime.replace(tzinfo=None)
-            
+
             if obj_datetime_native < threshold_date:
                 self.delete_backup(backup['Key'])
 
 
     def delete_server_backup(self, backup_id):
-        url = f"{self.url}/api/v3/system/backup/{backup_id}"
+        url = f"{self.url}/api/v1/system/backup/{backup_id}"
         headers = {
             "X-Api-Key": self.api_key,
             "Accept": "application/json",
@@ -129,14 +129,14 @@ class Sonarr(Server):
         res = requests.delete(url, headers=headers)
 
         if res.status_code == 200:
-            logger.info(f"Backup {backup_id} deleted successfully from Sonarr.")
+            logger.info(f"Backup {backup_id} deleted successfully from Readarr.")
         else:
-            logger.error(f"Failed to delete the backup {backup_id} from Sonarr. Status code: {res.status_code}")
-            logger.debug(res.txt)
+            logger.error(f"Failed to delete the backup {backup_id} from Readarr. Status code: {res.status_code}")
+            logger.debug(res.text)
 
 
     def list_backups(self):
-        backups = self.storage.list("sonarr")
+        backups = self.storage.list("readarr")
         backup_list = []
         for backup in backups:
             backup_list.append({
@@ -148,7 +148,7 @@ class Sonarr(Server):
 
 
     def download_latest_backup(self):
-        url = f"{self.url}/api/v3/system/backup"
+        url = f"{self.url}/api/v1/system/backup"
         headers = {
             "X-Api-Key": self.api_key,
             "Accept": "application/json",
@@ -156,11 +156,11 @@ class Sonarr(Server):
         }
         logger.info("Downloading the latest backup.")
         res = requests.get(url, headers=headers)
-        
+
         if res.status_code != 200:
             logger.error(f"Failed to retrieve backups. Status code: {res.status_code}")
             return None
-        
+
         backups = res.json()
         manual_backup = next((b for b in backups if b.get('type') == 'manual'), None)
 
@@ -192,7 +192,7 @@ class Sonarr(Server):
 
 
     def get_backup_id(self, backup_name):
-        url = f"{self.url}/api/v3/system/backup"
+        url = f"{self.url}/api/v1/system/backup"
         headers = {
             "X-Api-Key": self.api_key,
             "Accept": "application/json",
@@ -200,11 +200,11 @@ class Sonarr(Server):
         }
         logger.info(f"Retrieving backup ID for {backup_name}.")
         res = requests.get(url, headers=headers)
-        
+
         if res.status_code != 200:
             logger.error(f"Failed to retrieve backups. Status code: {res.status_code}")
             return None
-        
+
         backups = res.json()
         backup = next((b for b in backups if b.get('name') == backup_name), None)
 
@@ -216,7 +216,7 @@ class Sonarr(Server):
 
 
     def wait_for_completion(self, command_id):
-        url = f"{self.url}/api/v3/command/{command_id}"
+        url = f"{self.url}/api/v1/command/{command_id}"
         headers = {
             "X-Api-Key": self.api_key,
             "Accept": "application/json",
@@ -233,4 +233,4 @@ class Sonarr(Server):
             logger.debug(f"Command status: {command_status}")
             if command_status == 'completed':
                 return True
-            time.sleep(1)  # Wait for 1 second before the next status check
+            time.sleep(1)

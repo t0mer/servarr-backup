@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import requests
 import yaml
 
-from ..destination.s3 import S3Bucket
+from ..destination import create_storage
 from . import Server
 
 
@@ -31,7 +31,7 @@ class Prowlarr(Server):
         if not prowlarr_config:
             raise ValueError(f"Instance '{instance_name}' configuration not found in the configuration file.")
 
-        s3_config = config.get("backups", {}).get("destination", {}).get("s3", {})
+        dest_config = config.get("backups", {}).get("destination", {})
         url = prowlarr_config.get("url")
         api_key = prowlarr_config.get("api_key")
 
@@ -41,12 +41,7 @@ class Prowlarr(Server):
         super().__init__(url, api_key)
 
         self.instance_name = instance_name  # Store the instance name
-        self.s3_bucket = S3Bucket(
-            s3_config.get('endpoint'),
-            s3_config.get('bucket'),
-            s3_config.get('key', {}).get('access'),
-            s3_config.get('key', {}).get('secret')
-        )
+        self.storage = create_storage(dest_config)
 
 
     def backup(self):
@@ -58,8 +53,8 @@ class Prowlarr(Server):
         
         if backup_path:
             # Upload Backup to S3
-            s3_key = f"prowlarr/{self.instance_name}/{os.path.basename(backup_path)}"
-            upload_success = self.s3_bucket.upload_file(backup_path, s3_key)
+            storage_key = f"prowlarr/{self.instance_name}/{os.path.basename(backup_path)}"
+            upload_success = self.storage.upload_file(backup_path, storage_key)
             
             if upload_success:
                 # Delete Backup from local file system
@@ -104,12 +99,12 @@ class Prowlarr(Server):
 
 
     def delete_backup(self, backup_name):
-        logger.info(f"Deleting backup '{backup_name}' from S3 for Prowlarr.")
+        logger.info(f"Deleting backup '{backup_name}' for Prowlarr.")
         try:
-            self.s3_bucket.delete_file(backup_name)
+            self.storage.delete_file(backup_name)
             return True
         except Exception as e:
-            logger.error(f"Failed to delete backup '{backup_name}' from S3: {e}")
+            logger.error(f"Failed to delete backup '{backup_name}': {e}")
             return False
     
 
@@ -144,7 +139,7 @@ class Prowlarr(Server):
     
 
     def list_backups(self):
-        backups = self.s3_bucket.list("prowlarr")
+        backups = self.storage.list("prowlarr")
         backup_list = []
         for backup in backups:
             backup_list.append({

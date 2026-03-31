@@ -4,9 +4,12 @@ from pathlib import Path
 
 import yaml
 
-from ...models.destination.s3 import S3Bucket
+from ...models.destination import create_storage
+from ...models.type.jackett import Jackett
+from ...models.type.lidarr import Lidarr
 from ...models.type.prowlarr import Prowlarr
 from ...models.type.radarr import Radarr
+from ...models.type.readarr import Readarr
 from ...models.type.sonarr import Sonarr
 
 
@@ -51,7 +54,7 @@ def delete_backup(args):
 
     backups = config.get("backups", {})
     starrs = backups.get("starrs", {})
-    s3_config = config.get("backups", {}).get("destination", {}).get("s3", {})
+    s3_config = config.get("backups", {}).get("destination", {})
     instances_to_check = []
     
     if args.type:
@@ -79,22 +82,17 @@ def delete_backup(args):
         return
     
     if args.name:
-        s3_bucket = S3Bucket(
-            s3_config.get('endpoint'),
-            s3_config.get('bucket'),
-            s3_config.get('key', {}).get('access'),
-            s3_config.get('key', {}).get('secret')
-        )
+        storage = create_storage(s3_config)
         
         found = False
-        for backup in s3_bucket.list():
+        for backup in storage.list():
             if args.name in backup["Key"]:
                 found = True
-                logger.info(f"Deleting backup '{args.name}' from S3.")
+                logger.info(f"Deleting backup '{args.name}'.")
                 try:
-                    s3_bucket.delete_file(backup["Key"])
+                    storage.delete_file(backup["Key"])
                 except Exception as e:
-                    logger.error(f"Failed to delete backup '{args.name}' from S3: {e}")
+                    logger.error(f"Failed to delete backup '{args.name}': {e}")
         
         if not found:
             logger.info(f"No backups found named: {args.name}")
@@ -118,10 +116,16 @@ def delete_backup(args):
         print("Please specify a backup name, --latest, or --retention.")
         
 def get_server_instance(service_type, instance_name):
-    if service_type == 'prowlarr':
+    if service_type == 'jackett':
+        return Jackett(instance_name)
+    elif service_type == 'lidarr':
+        return Lidarr(instance_name)
+    elif service_type == 'prowlarr':
         return Prowlarr(instance_name)
     elif service_type == 'radarr':
         return Radarr(instance_name)
+    elif service_type == 'readarr':
+        return Readarr(instance_name)
     elif service_type == 'sonarr':
         return Sonarr(instance_name)
     else:

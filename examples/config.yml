@@ -3,13 +3,22 @@ backups:
   log: true
 
   starrs:
+    jackett:
+      - name: main
+        url: 
+        api_key: 
     lidarr:
+      - name: main
+        url: 
+        api_key: 
     radarr:
       - name: main
         url: 
         api_key: 
-
     readarr:
+      - name: main
+        url: 
+        api_key: 
     sonarr:
       - name: main
         url: 
@@ -20,9 +29,22 @@ backups:
         api_key: 
 
   destination:
+    # Set 'type' to one of: s3, r2, local
+    type: s3
+
     s3:
       endpoint: https://s3.pub1.infomaniak.cloud
       bucket: servarr
       key:
         access: 
         secret: 
+
+    r2:
+      account_id: 
+      bucket: servarr
+      key:
+        access: 
+        secret: 
+
+    local:
+      path: ~/servarr-backups

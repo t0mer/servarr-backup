@@ -4,8 +4,11 @@ from pathlib import Path
 
 import yaml
 
+from ...models.type.jackett import Jackett
+from ...models.type.lidarr import Lidarr
 from ...models.type.prowlarr import Prowlarr
 from ...models.type.radarr import Radarr
+from ...models.type.readarr import Readarr
 from ...models.type.sonarr import Sonarr
 
 
@@ -63,12 +66,21 @@ def create_backup(args):
         return
 
     for service_type, instance in instances_to_backup:
-        if service_type == 'prowlarr':
+        if service_type == 'jackett':
+            jackett = Jackett(instance['name'])
+            jackett.backup()
+        elif service_type == 'lidarr':
+            lidarr = Lidarr(instance['name'])
+            lidarr.backup()
+        elif service_type == 'prowlarr':
             prowlarr = Prowlarr(instance['name'])
             prowlarr.backup()
         elif service_type == 'radarr':
             radarr = Radarr(instance['name'])
             radarr.backup()
+        elif service_type == 'readarr':
+            readarr = Readarr(instance['name'])
+            readarr.backup()
         elif service_type == 'sonarr':
             sonarr = Sonarr(instance['name'])
             sonarr.backup()

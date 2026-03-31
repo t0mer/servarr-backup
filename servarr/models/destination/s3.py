@@ -4,8 +4,10 @@ from datetime import datetime, timedelta
 
 import boto3
 
+from .base import StorageBackend
 
-class S3Bucket:
+
+class S3Bucket(StorageBackend):
     def __init__(self, endpoint_url, bucket_name, access_key, secret_key):
         self.endpoint_url = endpoint_url
         self.bucket_name = bucket_name

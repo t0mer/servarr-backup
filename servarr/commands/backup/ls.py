@@ -6,8 +6,11 @@ import humanize
 import yaml
 from tabulate import tabulate
 
+from ...models.type.jackett import Jackett
+from ...models.type.lidarr import Lidarr
 from ...models.type.prowlarr import Prowlarr
 from ...models.type.radarr import Radarr
+from ...models.type.readarr import Readarr
 from ...models.type.sonarr import Sonarr
 
 
@@ -61,12 +64,21 @@ def list_backups(args):
     backup_list = []
 
     for service_type, instance in instances_to_check:
-        if service_type == 'prowlarr':
+        if service_type == 'jackett':
+            jackett = Jackett(instance['name'])
+            backups = jackett.list_backups()
+        elif service_type == 'lidarr':
+            lidarr = Lidarr(instance['name'])
+            backups = lidarr.list_backups()
+        elif service_type == 'prowlarr':
             prowlarr = Prowlarr(instance['name'])
             backups = prowlarr.list_backups()
         elif service_type == 'radarr':
             radarr = Radarr(instance['name'])
             backups = radarr.list_backups()
+        elif service_type == 'readarr':
+            readarr = Readarr(instance['name'])
+            backups = readarr.list_backups()
         elif service_type == 'sonarr':
             sonarr = Sonarr(instance['name'])
             backups = sonarr.list_backups()
